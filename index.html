@@ -39,6 +39,7 @@
             padding: 15px;
             margin-bottom: 20px;
             background-color: #f9f9f9;
+            position: relative;
         }
 
         /* Styling each form group */
@@ -106,12 +107,40 @@
             padding: 10px;
             border-radius: 4px;
         }
+        
+        /* Styling for delete icon */
+        .delete-entry {
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
     </style>
 </head>
 <body>
 
 <div class="form-container">
     <h2>Travel Bill Form</h2>
+    <div class="form-group">
+        <label for="billNo">Bill No</label>
+        <input type="text" id="billNo" placeholder="Enter bill number">
+    </div>
+    
+    <div class="form-group">
+        <label for="date">Date</label>
+        <input type="date" id="date">
+    </div>
+
     <div class="form-group">
         <label for="companyName">Company Name</label>
         <input type="text" id="companyName" placeholder="Enter company name">
@@ -120,7 +149,6 @@
         <label for="gstinNumber">GSTIN Number</label>
         <input type="text" id="gstinNumber" placeholder="Enter GSTIN number">
     </div>
-
 
     <div id="entryContainer">
         <!-- Dynamic form entries will appear here -->
@@ -134,15 +162,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 <script>
     let entryCount = 0;
+    let activeEntries = []; // Track active entries
 
     function addEntry() {
         entryCount++;
+        activeEntries.push(entryCount); // Add new entry ID to active entries
+
         const container = document.getElementById("entryContainer");
 
         const entryDiv = document.createElement("div");
         entryDiv.className = "entry";
+        entryDiv.id = `entry${entryCount}`;  // Assign unique ID to each entry
         entryDiv.innerHTML = `
-            <h3>Vehicle Entry ${entryCount}</h3>
+            <div class="entry-header">
+                <h3>Vehicle Entry ${entryCount}</h3>
+                <button class="delete-entry" onclick="deleteEntry(${entryCount})">&times;</button>
+            </div>
             <div class="form-group">
                 <label for="vehicleNumber${entryCount}">Vehicle Number</label>
                 <input type="text" id="vehicleNumber${entryCount}" placeholder="Enter vehicle number">
@@ -161,12 +196,18 @@
             </div>
             <div class="form-group">
                 <label for="totalKmsHours${entryCount}">Select Hours/Kms</label>
-                <select id="totalKmsHours${entryCount}">
-                    <option value="80|8">8 hours / 80 km</option>
-                    <option value="100|10">10 hours / 100 km</option>
-                    <option value="120|12">12 hours / 120 km</option>
+                <select id="totalKmsHours${entryCount}"" onchange="toggleOutStationField(${entryCount})">
+                    <option value="80 km | 8 hrs">8 hours / 80 km</option>
+                    <option value="100 km |10 hrs">10 hours / 100 km</option>
+                    <option value="120 km|12 hrs">12 hours / 120 km</option>
+                    <option value="outstation"> Out Station </option>
                 </select>
             </div>
+            <div class="form-group" id="outStationField${entryCount}" style="display: none;">
+    <label for="outStationDestination${entryCount}">Destination</label>
+    <input type="text" id="outStationDestination${entryCount}" placeholder="Enter destination">
+</div>
+
             <div class="checkbox-group">
                 <input type="checkbox" id="extraKmsToggle${entryCount}" onclick="toggleField(${entryCount}, 'extraKms')"> Include Extra Kilometers
                 <div id="extraKmsField${entryCount}" class="optional-fields">
@@ -192,13 +233,38 @@
                     <input type="number" id="driverBatta${entryCount}" placeholder="Enter driver batta">
                 </div>
             </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="TollPlazaToggle${entryCount}" onclick="toggleField(${entryCount}, 'TollPlaza')"> Include Toll    Plaza
+                <div id="TollPlazaField${entryCount}" class="optional-fields">
+                    <label for="TollPlaza${entryCount}">Toll Plaza</label>
+                    <input type="number" id="TollPlaza${entryCount}" placeholder="Enter TollPlaza">
+                </div>
+            </div>
         `;
         container.appendChild(entryDiv);
     }
-    function toggleField(entryId, field) {
+
+     function toggleField(entryId, field) {
         const fieldDiv = document.getElementById(`${field}Field${entryId}`);
         const checkbox = document.getElementById(`${field}Toggle${entryId}`);
         fieldDiv.style.display = checkbox.checked ? 'block' : 'none';
+    }
+        function deleteEntry(entryId) {
+        const entry = document.getElementById(`entry${entryId}`);
+        if (entry) {
+            entry.remove(); // Remove the entry from the DOM
+            activeEntries = activeEntries.filter(id => id !== entryId); // Remove the ID from activeEntries
+        }
+    }
+
+    function toggleOutStationField(entryId) {
+        const dropdown = document.getElementById(`totalKmsHours${entryId}`);
+        const outStationField = document.getElementById(`outStationField${entryId}`);
+        if (dropdown.value === "outstation") {
+            outStationField.style.display = "block";
+        } else {
+            outStationField.style.display = "none";
+        }
     }
 
     async function generateBill() {
@@ -211,38 +277,63 @@
         let cumulativeTotal = 0; // Variable to accumulate total for all vehicles
         const companyName = document.getElementById("companyName").value;
         const gstinNumber = document.getElementById("gstinNumber").value;
-        worksheet.getCell('B8 ').value = companyName; // Adjust cell based on template
-        worksheet.getCell('B9').value = gstinNumber; // Adjust cell based on template
+        const billNo = document.getElementById("billNo").value;
+        const date = document.getElementById("date").value;
 
-        for (let i = 1; i <= entryCount; i++) {
-            const vehicleNumber = document.getElementById(`vehicleNumber${i}`).value;
-            const vehicleName = document.getElementById(`vehicleName${i}`).value;
-            const date = document.getElementById(`date${i}`).value;
-            const baseAmount = parseFloat(document.getElementById(`baseAmount${i}`).value) || 0;
+        worksheet.getCell('B8').value = companyName; // Adjust cell based on template
+        worksheet.getCell('B9').value = gstinNumber; // Adjust cell based on template
+        worksheet.getCell('B7').value = billNo; // Adjust cell based on template
+        worksheet.getCell('K7').value = date; // Adjust cell based on template
+
+        // Loop through active entries to populate data into the Excel sheet
+        let currentRow = startingRow;
+        activeEntries.forEach(entryId => {
+            const vehicleNumber = document.getElementById(`vehicleNumber${entryId}`).value;
+            const vehicleName = document.getElementById(`vehicleName${entryId}`).value;
+            const date = document.getElementById(`date${entryId}`).value;
+            const baseAmount = parseFloat(document.getElementById(`baseAmount${entryId}`).value) || 0;
 
             // Parse selected hours and kilometers
-            const [totalKms, totalHours] = document.getElementById(`totalKmsHours${i}`).value.split('|').map(Number);
+            let totalKms, totalHours;
+            let destination = " ";
+            const totalKmsHoursValue = document.getElementById(`totalKmsHours${entryId}`).value;
+            
+            if (totalKmsHoursValue === "outstation") {
+                // Set totalKms and totalHours to "Out Station" if the outstation option is selected
+                totalKms = "Out Station";
+                totalHours = " ";
+                 destination = document.getElementById(`outStationDestination${entryId}`).value; // Get the destination value
+                console.log("Out Station to:", destination); // Use destination as needed
+            } else {
+                // Parse standard total kms and hours
+                [totalKms, totalHours] = totalKmsHoursValue.split('|');
+            }
+            
 
-            let currentRow = startingRow + (i - 1) * 5;
             if (currentRow >= 25) {
                 worksheet.insertRow(currentRow + 1);
                 currentRow++;
             }
 
             worksheet.getColumn(3).width = 12; // Set width for column C
-            worksheet.getColumn(6).width = 9; // Set width for column D
+            worksheet.getColumn(6).width = 9;  // Set width for column D
+
             // Place main data
+
             worksheet.getCell(`D${currentRow}`).value = vehicleNumber;
             worksheet.getCell(`B${currentRow}`).value = vehicleName;
             worksheet.getCell(`C${currentRow}`).value = date;
-            worksheet.getCell(`E${currentRow}`).value = totalKms;
-            worksheet.getCell(`F${currentRow}`).value = totalHours;
+            worksheet.getCell(`F${currentRow}`).value = totalKms ;
+            worksheet.getCell(`E${currentRow}`).value = totalHours ;
+            worksheet.getCell(`H${currentRow}`).value = destination;
             worksheet.getCell(`K${currentRow}`).value = baseAmount;
-            let entryTotal = baseAmount; // Use user-entered base amount
+            
+            let entryTotal = baseAmount;
 
-            if (document.getElementById(`extraKmsToggle${i}`).checked) {
-                const extraKms = parseFloat(document.getElementById(`extraKms${i}`).value) || 0;
-                const contactRateKm = parseFloat(document.getElementById(`contactRateKm${i}`).value) || 0;
+            // Check for extra fields and add to entry total if applicable
+            if (document.getElementById(`extraKmsToggle${entryId}`).checked) {
+                const extraKms = parseFloat(document.getElementById(`extraKms${entryId}`).value) || 0;
+                const contactRateKm = parseFloat(document.getElementById(`contactRateKm${entryId}`).value) || 0;
                 worksheet.getCell(`E${currentRow + 1}`).value = "Extra Kms";
                 worksheet.getCell(`G${currentRow + 1}`).value = extraKms;
                 worksheet.getCell(`I${currentRow + 1}`).value = contactRateKm;
@@ -251,9 +342,9 @@
                 currentRow++;
             }
             
-            if (document.getElementById(`extraHoursToggle${i}`).checked) {
-                const extraHours = parseFloat(document.getElementById(`extraHours${i}`).value) || 0;
-                const contactRateHour = parseFloat(document.getElementById(`contactRateHour${i}`).value) || 0;
+            if (document.getElementById(`extraHoursToggle${entryId}`).checked) {
+                const extraHours = parseFloat(document.getElementById(`extraHours${entryId}`).value) || 0;
+                const contactRateHour = parseFloat(document.getElementById(`contactRateHour${entryId}`).value) || 0;
                 worksheet.getCell(`E${currentRow + 1}`).value = "Extra Hours";
                 worksheet.getCell(`H${currentRow + 1}`).value = extraHours;
                 worksheet.getCell(`I${currentRow + 1}`).value = contactRateHour;
@@ -262,23 +353,40 @@
                 currentRow++;
             }
             
-            if (document.getElementById(`driverBattaToggle${i}`).checked) {
-                const driverBatta = parseFloat(document.getElementById(`driverBatta${i}`).value) || 0;
+            if (document.getElementById(`driverBattaToggle${entryId}`).checked) {
+                const driverBatta = parseFloat(document.getElementById(`driverBatta${entryId}`).value) || 0;
                 worksheet.getCell(`E${currentRow + 1}`).value = "Driver Batta";
                 worksheet.getCell(`K${currentRow + 1}`).value = driverBatta;
                 entryTotal += driverBatta;
                 currentRow++;
             }
-            
-            // Accumulate total for this entry
-            cumulativeTotal += entryTotal;
+
+            if (document.getElementById(`TollPlazaToggle${entryId}`).checked) {
+                const TollPlaza = parseFloat(document.getElementById(`TollPlaza${entryId}`).value) || 0;
+                worksheet.getCell(`E${currentRow + 1}`).value = "Toll Plaza";
+                worksheet.getCell(`K${currentRow + 1}`).value = TollPlaza;
+                entryTotal += TollPlaza;
+                currentRow++;
             }
             
+            
+            cumulativeTotal += entryTotal;
+            currentRow++; // Move to next row for the next entry
+        });
 
-        // Store the cumulative total for all entries in cell K29
-            // Store the cumulative total for all entries in cell K29
-            worksheet.getCell(`J29`).value = "Net Amount(Rs.)";
-            worksheet.getCell(`K29`).value = cumulativeTotal;
+        // Place final calculations in the reserved rows
+        const reservedRowStart = currentRow >= 26 ? currentRow + 1 : 26;
+        worksheet.getCell(`J${reservedRowStart-1}`).value = "Net Amount(Rs.)";
+        worksheet.getCell(`K${reservedRowStart-1}`).value = cumulativeTotal;
+
+        worksheet.getCell(`C${reservedRowStart}`).value = "GSTIN  No-36ANPPK2970F1ZR";
+        worksheet.getCell(`C${reservedRowStart+1}`).value = "HSN No - 9964";
+        
+        worksheet.getCell(`J${reservedRowStart}`).value = "CGST@2.5(RS)";
+        worksheet.getCell(`K${reservedRowStart}`).value = cumulativeTotal * 0.025;
+
+        worksheet.getCell(`J${reservedRowStart + 1}`).value = "SGST@2.5(RS)";
+        worksheet.getCell(`K${reservedRowStart + 1}`).value = cumulativeTotal * 0.025;
 
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
