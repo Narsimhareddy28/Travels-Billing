@@ -203,7 +203,7 @@
 
     async function generateBill() {
         const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(await fetch('/1.xlsx').then(res => res.arrayBuffer()));
+        await workbook.xlsx.load(await fetch('1.xlsx').then(res => res.arrayBuffer()));
 
         const worksheet = workbook.getWorksheet(1); // Assuming the data is in the first sheet
 
