@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Bill Form with Multiple Entries and Optional Fields</title>
+    <style>
+        /* Basic styling for the page */
+        body { 
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Styling the form container */
+        .form-container { 
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 700px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .form-container h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .entry {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+
+        /* Styling each form group */
+        .form-group { 
+            margin-bottom: 15px; 
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .form-group input, 
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+            box-sizing: border-box;
+            background-color: #fff;
+        }
+
+        /* Styling buttons */
+        .form-group button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .form-group button:hover {
+            background-color: #218838;
+        }
+
+        /* Styling the toggle checkbox and inner fields */
+        .checkbox-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f7f7f7;
+            border-radius: 4px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+            vertical-align: middle;
+        }
+
+        /* Collapsible fields for optional input */
+        .optional-fields {
+            display: none;
+            margin-top: 10px;
+            padding-left: 20px;
+            background-color: #eef5f9;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="form-container">
+    <h2>Travel Bill Form</h2>
+    <div class="form-group">
+        <label for="companyName">Company Name</label>
+        <input type="text" id="companyName" placeholder="Enter company name">
+    </div>
+    <div class="form-group">
+        <label for="gstinNumber">GSTIN Number</label>
+        <input type="text" id="gstinNumber" placeholder="Enter GSTIN number">
+    </div>
+
+
+    <div id="entryContainer">
+        <!-- Dynamic form entries will appear here -->
+    </div>
+    <div class="form-group">
+        <button onclick="addEntry()">Add New Entry</button>
+        <button onclick="generateBill()">Generate Bill</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script>
+    let entryCount = 0;
+
+    function addEntry() {
+        entryCount++;
+        const container = document.getElementById("entryContainer");
+
+        const entryDiv = document.createElement("div");
+        entryDiv.className = "entry";
+        entryDiv.innerHTML = `
+            <h3>Vehicle Entry ${entryCount}</h3>
+            <div class="form-group">
+                <label for="vehicleNumber${entryCount}">Vehicle Number</label>
+                <input type="text" id="vehicleNumber${entryCount}" placeholder="Enter vehicle number">
+            </div>
+            <div class="form-group">
+                <label for="vehicleName${entryCount}">Vehicle Name</label>
+                <input type="text" id="vehicleName${entryCount}" placeholder="Enter vehicle name">
+            </div>
+            <div class="form-group">
+                <label for="date${entryCount}">Date</label>
+                <input type="date" id="date${entryCount}">
+            </div>
+            <div class="form-group">
+                <label for="baseAmount${entryCount}">Base Amount</label>
+                <input type="number" id="baseAmount${entryCount}" placeholder="Enter base amount">
+            </div>
+            <div class="form-group">
+                <label for="totalKmsHours${entryCount}">Select Hours/Kms</label>
+                <select id="totalKmsHours${entryCount}">
+                    <option value="80|8">8 hours / 80 km</option>
+                    <option value="100|10">10 hours / 100 km</option>
+                    <option value="120|12">12 hours / 120 km</option>
+                </select>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="extraKmsToggle${entryCount}" onclick="toggleField(${entryCount}, 'extraKms')"> Include Extra Kilometers
+                <div id="extraKmsField${entryCount}" class="optional-fields">
+                    <label for="extraKms${entryCount}">Extra Kilometers</label>
+                    <input type="number" id="extraKms${entryCount}" placeholder="Enter extra kms">
+                    <label for="contactRateKm${entryCount}">Contact Rate per Km</label>
+                    <input type="number" id="contactRateKm${entryCount}" placeholder="Enter rate per km">
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="extraHoursToggle${entryCount}" onclick="toggleField(${entryCount}, 'extraHours')"> Include Extra Hours
+                <div id="extraHoursField${entryCount}" class="optional-fields">
+                    <label for="extraHours${entryCount}">Extra Hours</label>
+                    <input type="number" id="extraHours${entryCount}" placeholder="Enter extra hours">
+                    <label for="contactRateHour${entryCount}">Contact Rate per Hour</label>
+                    <input type="number" id="contactRateHour${entryCount}" placeholder="Enter rate per hour">
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="driverBattaToggle${entryCount}" onclick="toggleField(${entryCount}, 'driverBatta')"> Include Driver Batta
+                <div id="driverBattaField${entryCount}" class="optional-fields">
+                    <label for="driverBatta${entryCount}">Driver Batta</label>
+                    <input type="number" id="driverBatta${entryCount}" placeholder="Enter driver batta">
+                </div>
+            </div>
+        `;
+        container.appendChild(entryDiv);
+    }
+    function toggleField(entryId, field) {
+        const fieldDiv = document.getElementById(`${field}Field${entryId}`);
+        const checkbox = document.getElementById(`${field}Toggle${entryId}`);
+        fieldDiv.style.display = checkbox.checked ? 'block' : 'none';
+    }
+
+    async function generateBill() {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(await fetch('/1.xlsx').then(res => res.arrayBuffer()));
+
+        const worksheet = workbook.getWorksheet(1); // Assuming the data is in the first sheet
+
+        const startingRow = 12; // Starting row for the first entry
+        let cumulativeTotal = 0; // Variable to accumulate total for all vehicles
+        const companyName = document.getElementById("companyName").value;
+        const gstinNumber = document.getElementById("gstinNumber").value;
+        worksheet.getCell('B8 ').value = companyName; // Adjust cell based on template
+        worksheet.getCell('B9').value = gstinNumber; // Adjust cell based on template
+
+        for (let i = 1; i <= entryCount; i++) {
+            const vehicleNumber = document.getElementById(`vehicleNumber${i}`).value;
+            const vehicleName = document.getElementById(`vehicleName${i}`).value;
+            const date = document.getElementById(`date${i}`).value;
+            const baseAmount = parseFloat(document.getElementById(`baseAmount${i}`).value) || 0;
+
+            // Parse selected hours and kilometers
+            const [totalKms, totalHours] = document.getElementById(`totalKmsHours${i}`).value.split('|').map(Number);
+
+            let currentRow = startingRow + (i - 1) * 5;
+            if (currentRow >= 25) {
+                worksheet.insertRow(currentRow + 1);
+                currentRow++;
+            }
+
+            worksheet.getColumn(3).width = 12; // Set width for column C
+            worksheet.getColumn(6).width = 9; // Set width for column D
+            // Place main data
+            worksheet.getCell(`D${currentRow}`).value = vehicleNumber;
+            worksheet.getCell(`B${currentRow}`).value = vehicleName;
+            worksheet.getCell(`C${currentRow}`).value = date;
+            worksheet.getCell(`E${currentRow}`).value = totalKms;
+            worksheet.getCell(`F${currentRow}`).value = totalHours;
+            worksheet.getCell(`K${currentRow}`).value = baseAmount;
+            let entryTotal = baseAmount; // Use user-entered base amount
+
+            if (document.getElementById(`extraKmsToggle${i}`).checked) {
+                const extraKms = parseFloat(document.getElementById(`extraKms${i}`).value) || 0;
+                const contactRateKm = parseFloat(document.getElementById(`contactRateKm${i}`).value) || 0;
+                worksheet.getCell(`E${currentRow + 1}`).value = "Extra Kms";
+                worksheet.getCell(`G${currentRow + 1}`).value = extraKms;
+                worksheet.getCell(`I${currentRow + 1}`).value = contactRateKm;
+                entryTotal += extraKms * contactRateKm;
+                worksheet.getCell(`K${currentRow + 1}`).value = extraKms * contactRateKm;
+                currentRow++;
+            }
+            
+            if (document.getElementById(`extraHoursToggle${i}`).checked) {
+                const extraHours = parseFloat(document.getElementById(`extraHours${i}`).value) || 0;
+                const contactRateHour = parseFloat(document.getElementById(`contactRateHour${i}`).value) || 0;
+                worksheet.getCell(`E${currentRow + 1}`).value = "Extra Hours";
+                worksheet.getCell(`H${currentRow + 1}`).value = extraHours;
+                worksheet.getCell(`I${currentRow + 1}`).value = contactRateHour;
+                entryTotal += extraHours * contactRateHour;
+                worksheet.getCell(`K${currentRow + 1}`).value = extraHours * contactRateHour;
+                currentRow++;
+            }
+            
+            if (document.getElementById(`driverBattaToggle${i}`).checked) {
+                const driverBatta = parseFloat(document.getElementById(`driverBatta${i}`).value) || 0;
+                worksheet.getCell(`E${currentRow + 1}`).value = "Driver Batta";
+                worksheet.getCell(`K${currentRow + 1}`).value = driverBatta;
+                entryTotal += driverBatta;
+                currentRow++;
+            }
+            
+            // Accumulate total for this entry
+            cumulativeTotal += entryTotal;
+            }
+            
+
+        // Store the cumulative total for all entries in cell K29
+            // Store the cumulative total for all entries in cell K29
+            worksheet.getCell(`J29`).value = "Net Amount(Rs.)";
+            worksheet.getCell(`K29`).value = cumulativeTotal;
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "Updated_Travel_Bill.xlsx";
+        link.click();
+    }
+</script>
+
+</body>
+</html>
